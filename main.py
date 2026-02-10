@@ -17,6 +17,9 @@ from models.one_class_svm import OneClassSVM
 from models.autoencoder import Autoencoder
 from pipeline.inference_pipeline import InferencePipeline
 from evaluation.metrics import AnomalyDetectionMetrics, ModelComparison
+from visualization.visualizer import ModelVisualizer
+from explainability.shap_explainer import SHAPExplainer
+from explainability.reconstruction_explainer import ReconstructionExplainer
 
 
 def setup_environment() -> None:
@@ -192,7 +195,87 @@ def evaluate_models(
         for metric, model_name in comparison["best_models"].items():
             print(f"  {metric}: {model_name}")
     
-    return comparison
+    return comparison, model_scores
+
+
+def create_visualizations(
+    models: dict,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    model_scores: dict,
+    feature_names: list,
+    X_train: np.ndarray
+) -> None:
+    """
+    Create comprehensive visualizations for model comparison.
+    
+    Args:
+        models: Dict of trained models
+        X_test: Test features
+        y_test: Test labels
+        model_scores: Dict of model prediction scores
+        feature_names: List of feature names
+        X_train: Training data for SHAP baseline
+    """
+    print("\n" + "="*60)
+    print("CREATING VISUALIZATIONS")
+    print("="*60)
+    
+    visualizer = ModelVisualizer(save_dir="visualizations")
+    
+    # Collect feature importance from each model using SHAP
+    feature_importance = {}
+    
+    for model_name, model in models.items():
+        print(f"\nExtracting feature importance for {model_name}...")
+        
+        # Use appropriate explainer based on model type
+        if model_name == 'autoencoder':
+            # Use reconstruction explainer for autoencoder
+            explainer = ReconstructionExplainer(
+                model=model,
+                feature_names=feature_names
+            )
+            # Get explanation for first test sample
+            explanations = explainer.explain_sample(X_test[0:1], top_k=10)
+            importance_dict = explanations[0]['feature_importance']
+        else:
+            # Use SHAP explainer for tree/SVM models
+            sklearn_model = model.model if hasattr(model, 'model') else model
+            explainer = SHAPExplainer(
+                model=sklearn_model, 
+                background_data=X_train[:100],
+                feature_names=feature_names
+            )
+            # Get SHAP explanation for first test sample
+            explanations = explainer.explain_sample(X_test[0:1], top_k=10)
+            importance_dict = explanations[0]['feature_importance']
+        
+        feature_importance[model_name] = importance_dict
+    
+    # Create comparative visualization
+    print("\nGenerating comparative analysis plots...")
+    
+    # Get evaluation results for visualization
+    evaluation_results = {}
+    for model_name in models.keys():
+        # Recalculate metrics for clean presentation
+        scores = model_scores[model_name]
+        metrics = AnomalyDetectionMetrics.compute_metrics(
+            y_true=y_test,
+            y_scores=scores,
+            threshold=0.5
+        )
+        evaluation_results[model_name] = metrics
+    
+    visualizer.create_comparative_analysis(
+        evaluation_results=evaluation_results,
+        predictions=model_scores,
+        feature_importance=feature_importance,
+        feature_names=feature_names
+    )
+    
+    print("\n✓ Visualizations complete")
 
 
 def run_inference_demo(
@@ -314,7 +397,17 @@ def main():
     models = train_models(X_train_normal)
     
     # Evaluate models
-    evaluation_results = evaluate_models(models, X_test_scaled, y_test)
+    evaluation_results, model_scores = evaluate_models(models, X_test_scaled, y_test)
+    
+    # Create visualizations
+    create_visualizations(
+        models=models,
+        X_test=X_test_scaled,
+        y_test=y_test,
+        model_scores=model_scores,
+        feature_names=feature_names,
+        X_train=X_train_scaled
+    )
     
     # Run inference demo
     run_inference_demo(

@@ -248,6 +248,11 @@ class AnomalyDetectionMetrics:
             metrics["precision"] = 0.0
             metrics["recall"] = 0.0
         
+        # Add false negative rate
+        metrics["false_negative_rate"] = AnomalyDetectionMetrics.compute_false_negative_rate(
+            y_true, y_pred
+        )
+        
         return metrics
     
     @staticmethod
