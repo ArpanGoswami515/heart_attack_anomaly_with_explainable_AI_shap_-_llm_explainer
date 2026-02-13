@@ -1,0 +1,68 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Model files (will be generated)
+*.pkl
+*.h5
+*.pt
+*.pth
+
+# Data files
+*.csv
+*.json
+!sample_inference_results.json
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Environment
+.env.local
+.env.*.local
+
+# Visualizations (generated)
+visualizations/*.png
+visualizations/*.jpg
+visualizations/*.pdf
+
+# Tuning results (generated, can be excluded)
+tuning_results/*.json
+!tuning_results/README.md
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Backup files
+*_backup_*.py
+settings_backup_*.py

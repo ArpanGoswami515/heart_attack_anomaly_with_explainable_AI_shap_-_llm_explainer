@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Attack Anomaly Detection - Main Server</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .status-card {
+            flex: 1;
+            min-width: 200px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .status-card h3 {
+            color: #666;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .status-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .status-online {
+            color: #10b981;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .panel {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .predictions-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .prediction-item {
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .prediction-item.high-risk {
+            border-left-color: #ef4444;
+            background: #fee;
+        }
+
+        .prediction-item.medium-risk {
+            border-left-color: #f59e0b;
+            background: #fff5e5;
+        }
+
+        .prediction-item.low-risk {
+            border-left-color: #10b981;
+            background: #eff;
+        }
+
+        .prediction-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .risk-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .risk-high {
+            background: #ef4444;
+            color: white;
+        }
+
+        .risk-medium {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .risk-low {
+            background: #10b981;
+            color: white;
+        }
+
+        .prediction-details {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .prediction-details p {
+            margin: 5px 0;
+        }
+
+        .explanation {
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            font-style: italic;
+            color: #555;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .connection-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+            margin-right: 5px;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .timestamp {
+            font-size: 0.8em;
+            color: #999;
+        }
+
+        .client-id {
+            font-weight: bold;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏥 Heart Attack Anomaly Detection Server</h1>
+            <p class="subtitle">Real-time monitoring and prediction dashboard</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status-card">
+                <h3>Server Status</h3>
+                <div class="status-value status-online">
+                    <span class="connection-indicator"></span>
+                    <span id="serverStatus">Online</span>
+                </div>
+            </div>
+            <div class="status-card">
+                <h3>Total Predictions</h3>
+                <div class="status-value" id="totalPredictions">0</div>
+            </div>
+            <div class="status-card">
+                <h3>High Risk Cases</h3>
+                <div class="status-value" style="color: #ef4444;" id="highRiskCount">0</div>
+            </div>
+            <div class="status-card">
+                <h3>Connected Clients</h3>
+                <div class="status-value" id="connectedClients">0</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>📊 Risk Distribution</h2>
+                <div class="chart-container">
+                    <canvas id="riskChart"></canvas>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>📈 Anomaly Score Trend</h2>
+                <div class="chart-container">
+                    <canvas id="scoreChart"></canvas>
+                </div>
+            </div>
+
+            <div class="panel full-width">
+                <h2>🔔 Recent Predictions</h2>
+                <div class="predictions-list" id="predictionsList">
+                    <p style="text-align: center; color: #999; padding: 40px;">
+                        Waiting for predictions from clients...
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+
+        // State
+        let predictions = [];
+        let connectedClientsCount = 0;
+        const MAX_HISTORY = 50;
+
+        // Charts
+        let riskChart, scoreChart;
+
+        // Initialize charts
+        function initCharts() {
+            // Risk distribution pie chart
+            const riskCtx = document.getElementById('riskChart').getContext('2d');
+            riskChart = new Chart(riskCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Low Risk', 'Medium Risk', 'High Risk'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#10b981', '#f59e0b', '#ef4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Anomaly score line chart
+            const scoreCtx = document.getElementById('scoreChart').getContext('2d');
+            scoreChart = new Chart(scoreCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Anomaly Score',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Socket event handlers
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            document.getElementById('serverStatus').textContent = 'Online';
+        });
+
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            document.getElementById('serverStatus').textContent = 'Offline';
+        });
+
+        socket.on('new_prediction', (data) => {
+            console.log('New prediction received:', data);
+            addPrediction(data);
+        });
+
+        // Add prediction to dashboard
+        function addPrediction(data) {
+            // Add to predictions array
+            predictions.unshift(data);
+            if (predictions.length > MAX_HISTORY) {
+                predictions.pop();
+            }
+
+            // Update statistics
+            updateStatistics();
+
+            // Update charts
+            updateCharts();
+
+            // Update predictions list
+            updatePredictionsList();
+        }
+
+        // Update statistics
+        function updateStatistics() {
+            document.getElementById('totalPredictions').textContent = predictions.length;
+
+            const highRisk = predictions.filter(p => p.risk_level === 'High').length;
+            document.getElementById('highRiskCount').textContent = highRisk;
+
+            // Update connected clients (estimate from unique client IDs)
+            const uniqueClients = new Set(predictions.map(p => p.client_id)).size;
+            document.getElementById('connectedClients').textContent = uniqueClients;
+        }
+
+        // Update charts
+        function updateCharts() {
+            // Update risk distribution
+            const lowRisk = predictions.filter(p => p.risk_level === 'Low').length;
+            const mediumRisk = predictions.filter(p => p.risk_level === 'Medium').length;
+            const highRisk = predictions.filter(p => p.risk_level === 'High').length;
+
+            riskChart.data.datasets[0].data = [lowRisk, mediumRisk, highRisk];
+            riskChart.update();
+
+            // Update score trend (last 20 predictions)
+            const recentScores = predictions.slice(0, 20).reverse();
+            scoreChart.data.labels = recentScores.map((_, i) => `#${i + 1}`);
+            scoreChart.data.datasets[0].data = recentScores.map(p => p.anomaly_score);
+            scoreChart.update();
+        }
+
+        // Update predictions list
+        function updatePredictionsList() {
+            const listEl = document.getElementById('predictionsList');
+            
+            if (predictions.length === 0) {
+                listEl.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">Waiting for predictions from clients...</p>';
+                return;
+            }
+
+            listEl.innerHTML = predictions.map(pred => `
+                <div class="prediction-item ${pred.risk_level.toLowerCase()}-risk">
+                    <div class="prediction-header">
+                        <div>
+                            <span class="client-id">Client: ${pred.client_id}</span>
+                            <span class="timestamp">${new Date(pred.timestamp).toLocaleString()}</span>
+                        </div>
+                        <span class="risk-badge risk-${pred.risk_level.toLowerCase()}">${pred.risk_level} Risk</span>
+                    </div>
+                    <div class="prediction-details">
+                        <p><strong>Prediction:</strong> ${pred.prediction}</p>
+                        <p><strong>Anomaly Score:</strong> ${pred.anomaly_score.toFixed(3)}</p>
+                        <p><strong>Model:</strong> ${pred.model}</p>
+                        ${pred.feature_importances ? `
+                            <p><strong>Key Features:</strong> ${Object.keys(pred.feature_importances).slice(0, 3).join(', ')}</p>
+                        ` : ''}
+                    </div>
+                    ${pred.llm_explanation ? `
+                        <div class="explanation">
+                            💡 ${pred.llm_explanation}
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Initialize
+        initCharts();
+    </script>
+</body>
+</html>

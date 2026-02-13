@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Attack Anomaly Detection - {{ client_id }}</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            font-size: 2.2em;
+            margin-bottom: 5px;
+        }
+
+        .client-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .connection-status {
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+            margin-right: 5px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        input[type="number"], input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result-panel {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-panel.show {
+            display: block;
+        }
+
+        .result-high {
+            background: #fee;
+            border: 2px solid #ef4444;
+        }
+
+        .result-medium {
+            background: #fff5e5;
+            border: 2px solid #f59e0b;
+        }
+
+        .result-low {
+            background: #eff;
+            border: 2px solid #10b981;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .risk-badge {
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .risk-high {
+            background: #ef4444;
+            color: white;
+        }
+
+        .risk-medium {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .risk-low {
+            background: #10b981;
+            color: white;
+        }
+
+        .result-detail {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .result-detail strong {
+            color: #667eea;
+        }
+
+        .explanation-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+            font-style: italic;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .history-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .history-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .sample-btn {
+            background: #10b981;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-bottom: 15px;
+        }
+
+        .sample-btn:hover {
+            background: #059669;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏥 Heart Attack Anomaly Detection</h1>
+            <div class="client-badge">{{ client_id }}</div>
+            <div class="connection-status">
+                <span class="status-indicator"></span>
+                <span id="connectionStatus">Connected • Local AI Predictions</span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="panel">
+                <h2>📋 Patient Data Input</h2>
+                
+                <button class="sample-btn" onclick="loadSampleData()">📂 Load Random Patient from CSV</button>
+                
+                <form id="patientForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="age">Age</label>
+                            <input type="number" id="age" name="Age" required min="1" max="120" value="55">
+                        </div>
+                        <div class="form-group">
+                            <label for="sex">Sex (0=Female, 1=Male)</label>
+                            <select id="sex" name="Sex" required>
+                                <option value="1">Male</option>
+                                <option value="0">Female</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="chestPain">Chest Pain Type (1-4)</label>
+                            <input type="number" id="chestPain" name="Chest pain type" required min="1" max="4" value="3">
+                        </div>
+                        <div class="form-group">
+                            <label for="bp">Blood Pressure (BP)</label>
+                            <input type="number" id="bp" name="BP" required min="80" max="200" value="130">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cholesterol">Cholesterol</label>
+                            <input type="number" id="cholesterol" name="Cholesterol" required min="100" max="600" value="250">
+                        </div>
+                        <div class="form-group">
+                            <label for="fbs">FBS over 120 (0=No, 1=Yes)</label>
+                            <select id="fbs" name="FBS over 120" required>
+                                <option value="0">No</option>
+                                <option value="1">Yes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ekg">EKG Results (0-2)</label>
+                            <input type="number" id="ekg" name="EKG results" required min="0" max="2" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="maxHR">Max Heart Rate</label>
+                            <input type="number" id="maxHR" name="Max HR" required min="60" max="220" value="150">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="exerciseAngina">Exercise Angina (0=No, 1=Yes)</label>
+                            <select id="exerciseAngina" name="Exercise angina" required>
+                                <option value="0">No</option>
+                                <option value="1">Yes</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="stDepression">ST Depression</label>
+                            <input type="number" id="stDepression" name="ST depression" required min="0" max="10" step="0.1" value="1.5">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="slopeOfST">Slope of ST (1-3)</label>
+                            <input type="number" id="slopeOfST" name="Slope of ST" required min="1" max="3" value="2">
+                        </div>
+                        <div class="form-group">
+                            <label for="vessels">Number of Vessels Fluro (0-3)</label>
+                            <input type="number" id="vessels" name="Number of vessels fluro" required min="0" max="3" value="0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="thallium">Thallium (3, 6, or 7)</label>
+                        <select id="thallium" name="Thallium" required>
+                            <option value="3">3 - Normal</option>
+                            <option value="6">6 - Fixed Defect</option>
+                            <option value="7">7 - Reversible Defect</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        🔍 Analyze Patient Data
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="clearForm()">
+                        Clear Form
+                    </button>
+                </form>
+
+                <div id="loadingIndicator" class="loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Analyzing data on server...</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>📊 Prediction Result</h2>
+                
+                <div id="noResult" style="text-align: center; color: #999; padding: 50px;">
+                    <p>No prediction yet.</p>
+                    <p>Submit patient data to get analysis.</p>
+                </div>
+
+                <div id="resultPanel" class="result-panel">
+                    <div class="result-header">
+                        <h3>Analysis Complete</h3>
+                        <span id="riskBadge" class="risk-badge"></span>
+                    </div>
+
+                    <div class="result-detail">
+                        <strong>Prediction:</strong> <span id="prediction"></span>
+                    </div>
+
+                    <div class="result-detail">
+                        <strong>Anomaly Score:</strong> <span id="anomalyScore"></span>
+                    </div>
+
+                    <div class="result-detail">
+                        <strong>Model:</strong> <span id="model"></span>
+                    </div>
+
+                    <div class="result-detail">
+                        <strong>Key Features:</strong>
+                        <ul id="keyFeatures"></ul>
+                    </div>
+
+                    <div class="explanation-box">
+                        <strong>💡 Clinical Explanation:</strong>
+                        <p id="explanation"></p>
+                    </div>
+
+                    <div style="margin-top: 15px; font-size: 0.85em; color: #666;">
+                        <strong>Timestamp:</strong> <span id="timestamp"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel full-width">
+                <h2>📜 Prediction History</h2>
+                <div class="history-list" id="historyList">
+                    <p style="text-align: center; color: #999; padding: 30px;">
+                        No predictions yet
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let clientId = '{{ client_id }}';
+        let serverUrl = '{{ server_url }}';
+
+        // Socket event handlers
+        socket.on('connect', () => {
+            console.log('Connected to client server');
+            document.getElementById('connectionStatus').textContent = 'Connected';
+        });
+
+        socket.on('client_info', (data) => {
+            clientId = data.client_id;
+            serverUrl = data.server_url;
+        });
+
+        socket.on('prediction_received', (data) => {
+            console.log('Prediction received:', data);
+            hideLoading();
+            
+            // Add badge for local vs server prediction
+            if (data.source === 'local') {
+                console.log('✓ Local prediction complete, sent to main server');
+            }
+            
+            displayResult(data);
+            addToHistory(data);
+        });
+
+        socket.on('prediction_error', (data) => {
+            console.error('Prediction error:', data);
+            hideLoading();
+            alert('Error: ' + data.error);
+        });
+
+        // Form submission
+        document.getElementById('patientForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            // Collect form data
+            const formData = new FormData(e.target);
+            const patientData = {};
+            
+            for (let [key, value] of formData.entries()) {
+                patientData[key] = parseFloat(value);
+            }
+
+            console.log('Starting local prediction with data:', patientData);
+            
+            // Show loading
+            showLoading();
+            
+            // Predict locally first, then send to server
+            socket.emit('predict_locally', {
+                patient_data: patientData
+            });
+        });
+
+        function showLoading() {
+            document.getElementById('loadingIndicator').style.display = 'block';
+            document.getElementById('loadingIndicator').innerHTML = `
+                <div class="spinner"></div>
+                <p>🔍 Running local prediction...</p>
+                <p style="font-size: 0.9em; color: #999;">Using Isolation Forest + LLM</p>
+            `;
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('noResult').style.display = 'none';
+            document.getElementById('resultPanel').classList.remove('show');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('submitBtn').disabled = false;
+        }
+
+        function displayResult(data) {
+            const resultPanel = document.getElementById('resultPanel');
+            const riskLevel = data.risk_level.toLowerCase();
+            
+            // Set risk class
+            resultPanel.className = 'result-panel show result-' + riskLevel;
+            
+            // Update badge
+            const badge = document.getElementById('riskBadge');
+            badge.textContent = data.risk_level + ' Risk';
+            badge.className = 'risk-badge risk-' + riskLevel;
+            
+            // Update details
+            document.getElementById('prediction').textContent = data.prediction;
+            document.getElementById('anomalyScore').textContent = data.anomaly_score.toFixed(4);
+            document.getElementById('model').textContent = data.model;
+            
+            // Key features
+            const featuresList = document.getElementById('keyFeatures');
+            featuresList.innerHTML = '';
+            if (data.feature_importances) {
+                Object.entries(data.feature_importances).slice(0, 5).forEach(([feature, importance]) => {
+                    const li = document.createElement('li');
+                    const value = data.feature_values[feature];
+                    li.textContent = `${feature}: ${value} (importance: ${importance.toFixed(3)})`;
+                    featuresList.appendChild(li);
+                });
+            }
+            
+            // Explanation
+            document.getElementById('explanation').textContent = data.llm_explanation || 'No explanation available';
+            
+            // Timestamp
+            document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleString();
+            
+            // Hide no result message
+            document.getElementById('noResult').style.display = 'none';
+        }
+
+        function addToHistory(data) {
+            const historyList = document.getElementById('historyList');
+            
+            // Clear placeholder if exists
+            if (historyList.children.length === 1 && historyList.children[0].tagName === 'P') {
+                historyList.innerHTML = '';
+            }
+            
+            const item = document.createElement('div');
+            item.className = 'history-item';
+            item.innerHTML = `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <strong>${new Date(data.timestamp).toLocaleString()}</strong>
+                    <span class="risk-badge risk-${data.risk_level.toLowerCase()}" style="padding: 3px 10px; font-size: 0.85em;">
+                        ${data.risk_level}
+                    </span>
+                </div>
+                <div style="font-size: 0.9em; color: #666;">
+                    <strong>Prediction:</strong> ${data.prediction} | 
+                    <strong>Score:</strong> ${data.anomaly_score.toFixed(3)}
+                </div>
+            `;
+            
+            historyList.insertBefore(item, historyList.firstChild);
+            
+            // Keep only last 20 items
+            while (historyList.children.length > 20) {
+                historyList.removeChild(historyList.lastChild);
+            }
+        }
+
+        function loadSampleData() {
+            // Load random patient data from CSV
+            fetch('/api/get_random_sample')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        const data = result.data;
+                        
+                        // Populate form with CSV data
+                        document.getElementById('age').value = data['Age'] || 55;
+                        document.getElementById('sex').value = data['Sex'] || 1;
+                        document.getElementById('chestPain').value = data['Chest pain type'] || 3;
+                        document.getElementById('bp').value = data['BP'] || 130;
+                        document.getElementById('cholesterol').value = data['Cholesterol'] || 250;
+                        document.getElementById('fbs').value = data['FBS over 120'] || 0;
+                        document.getElementById('ekg').value = data['EKG results'] || 1;
+                        document.getElementById('maxHR').value = data['Max HR'] || 150;
+                        document.getElementById('exerciseAngina').value = data['Exercise angina'] || 0;
+                        document.getElementById('stDepression').value = data['ST depression'] || 1.5;
+                        document.getElementById('slopeOfST').value = data['Slope of ST'] || 2;
+                        document.getElementById('vessels').value = data['Number of vessels fluro'] || 0;
+                        document.getElementById('thallium').value = data['Thallium'] || 3;
+                        
+                        console.log('Loaded random sample from CSV:', data);
+                    } else {
+                        alert('Error loading sample data: ' + result.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to load sample data');
+                });
+        }
+
+        function clearForm() {
+            document.getElementById('patientForm').reset();
+        }
+
+        // Load history on page load
+        socket.emit('get_history');
+    </script>
+</body>
+</html>

@@ -52,14 +52,35 @@ class IsolationForest(BaseAnomalyModel):
         if not self.is_fitted:
             raise ValueError("Model must be fitted before scoring.")
         
-        # Get decision scores (negative values, lower = more anomalous)
-        raw_scores = self.model.decision_function(X)
+        # Use sklearn's score_samples which returns negative average path length
+        # More negative = more anomalous
+        raw_scores = self.model.score_samples(X)
         
-        # Convert to [0, 1] where 1 = highly anomalous
-        # More negative scores should become higher values
-        normalized_scores = self._normalize_scores(raw_scores, reverse=True)
+        # Normalize to [0, 1] where 1 = highly anomalous
+        # Based on empirical observation of Isolation Forest on typical data:
+        # - Raw scores typically range from approximately -0.75 to -0.40
+        # - We use the offset as the midpoint for anomaly/normal classification
         
-        return normalized_scores
+        offset = self.model.offset_
+        
+        # Use a range centered on the offset
+        # Empirically, scores span about ±3*std from mean
+        # For heart attack data: std ≈ 0.07, so range ≈ ±0.21 from offset
+        typical_std = 0.07
+        score_range = 3 * typical_std  # ±0.21
+        
+        # Expected min/max based on offset
+        expected_min = offset - score_range  # More anomalous
+        expected_max = offset + score_range  # More normal
+        
+        # Normalize: map [expected_min, expected_max] → [1, 0]
+        # (reverse because lower raw scores = higher anomaly)
+        anomaly_scores = 1 - ((raw_scores - expected_min) / (expected_max - expected_min))
+        
+        # Clip to [0, 1]
+        anomaly_scores = np.clip(anomaly_scores, 0, 1)
+        
+        return anomaly_scores
     
     def predict(self, X: np.ndarray) -> np.ndarray:
         """

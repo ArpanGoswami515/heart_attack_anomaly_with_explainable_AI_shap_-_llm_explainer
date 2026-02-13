@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # Main Server - Runs the anomaly detection model
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: anomaly_detection_server
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - PYTHONUNBUFFERED=1
+      - HUGGINGFACE_API_TOKEN=${HUGGINGFACE_API_TOKEN}
+    volumes:
+      - ./saved_models:/app/saved_models
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./preprocessing:/app/preprocessing
+      - ./config:/app/config
+      - ./llm:/app/llm
+      - ./explainability:/app/explainability
+    networks:
+      - anomaly_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/api/status')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Client 1
+  client1:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: anomaly_client_1
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - SERVER_URL=http://server:5000
+      - CLIENT_ID=Client-1
+      - PYTHONUNBUFFERED=1
+      - HUGGINGFACE_API_TOKEN=${HUGGINGFACE_API_TOKEN}
+    volumes:
+      - ./saved_models:/app/saved_models
+      - ./data:/app/data
+    depends_on:
+      - server
+    networks:
+      - anomaly_network
+    restart: unless-stopped
+
+  # Client 2
+  client2:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: anomaly_client_2
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+      - SERVER_URL=http://server:5000
+      - CLIENT_ID=Client-2
+      - PYTHONUNBUFFERED=1
+      - HUGGINGFACE_API_TOKEN=${HUGGINGFACE_API_TOKEN}
+    volumes:
+      - ./saved_models:/app/saved_models
+      - ./data:/app/data
+    depends_on:
+      - server
+    networks:
+      - anomaly_network
+    restart: unless-stopped
+
+  # Client 3
+  client3:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: anomaly_client_3
+    ports:
+      - "5003:5003"
+    environment:
+      - PORT=5003
+      - SERVER_URL=http://server:5000
+      - CLIENT_ID=Client-3
+      - PYTHONUNBUFFERED=1
+      - HUGGINGFACE_API_TOKEN=${HUGGINGFACE_API_TOKEN}
+    volumes:
+      - ./saved_models:/app/saved_models
+      - ./data:/app/data
+    depends_on:
+      - server
+    networks:
+      - anomaly_network
+    restart: unless-stopped
+
+networks:
+  anomaly_network:
+    driver: bridge
+
+volumes:
+  saved_models:
+  data:

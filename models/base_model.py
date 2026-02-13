@@ -90,7 +90,8 @@ class BaseAnomalyModel(ABC):
     def _normalize_scores(
         self, 
         scores: np.ndarray, 
-        reverse: bool = False
+        reverse: bool = False,
+        score_range: tuple = None
     ) -> np.ndarray:
         """
         Normalize scores to [0, 1] range.
@@ -98,6 +99,8 @@ class BaseAnomalyModel(ABC):
         Args:
             scores: Raw scores
             reverse: If True, reverse the scores (higher becomes lower)
+            score_range: Optional (min, max) tuple for normalization bounds.
+                        If None, uses the actual min/max of the scores.
             
         Returns:
             np.ndarray: Normalized scores
@@ -105,13 +108,21 @@ class BaseAnomalyModel(ABC):
         if len(scores) == 0:
             return scores
         
-        min_score = np.min(scores)
-        max_score = np.max(scores)
+        if score_range is not None:
+            min_score, max_score = score_range
+        else:
+            min_score = np.min(scores)
+            max_score = np.max(scores)
         
         if max_score - min_score == 0:
+            # If scores are constant, return middle value
+            # (This typically happens with single-sample normalization)
             return np.ones_like(scores) * 0.5
         
-        normalized = (scores - min_score) / (max_score - min_score)
+        # Clip scores to the specified range
+        scores_clipped = np.clip(scores, min_score, max_score)
+        
+        normalized = (scores_clipped - min_score) / (max_score - min_score)
         
         if reverse:
             normalized = 1 - normalized
