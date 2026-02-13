@@ -433,10 +433,6 @@
                     </div>
 
                     <div class="result-detail">
-                        <strong>Model:</strong> <span id="model"></span>
-                    </div>
-
-                    <div class="result-detail">
                         <strong>Key Features:</strong>
                         <ul id="keyFeatures"></ul>
                     </div>
@@ -526,7 +522,6 @@
             document.getElementById('loadingIndicator').innerHTML = `
                 <div class="spinner"></div>
                 <p>🔍 Running local prediction...</p>
-                <p style="font-size: 0.9em; color: #999;">Using Isolation Forest + LLM</p>
             `;
             document.getElementById('submitBtn').disabled = true;
             document.getElementById('noResult').style.display = 'none';
@@ -553,7 +548,6 @@
             // Update details
             document.getElementById('prediction').textContent = data.prediction;
             document.getElementById('anomalyScore').textContent = data.anomaly_score.toFixed(4);
-            document.getElementById('model').textContent = data.model;
             
             // Key features
             const featuresList = document.getElementById('keyFeatures');

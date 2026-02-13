@@ -435,7 +435,6 @@
                     <div class="prediction-details">
                         <p><strong>Prediction:</strong> ${pred.prediction}</p>
                         <p><strong>Anomaly Score:</strong> ${pred.anomaly_score.toFixed(3)}</p>
-                        <p><strong>Model:</strong> ${pred.model}</p>
                         ${pred.feature_importances ? `
                             <p><strong>Key Features:</strong> ${Object.keys(pred.feature_importances).slice(0, 3).join(', ')}</p>
                         ` : ''}
